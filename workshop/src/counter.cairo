@@ -26,12 +26,14 @@ use core::starknet::event::EventEmitter;
         ownable: OwnableComponent::Storage
     }
 
+    // this event will emit whenever the state variable counter increases
     #[derive(Drop, PartialEq, starknet::Event)]
     struct CounterIncreased {
        #[key]
        pub value: u32
     }
 
+    // event enum 
     #[event]
     #[derive(Drop, PartialEq, starknet::Event)]
     pub enum Event {
@@ -41,9 +43,9 @@ use core::starknet::event::EventEmitter;
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, inital_value: u32, kill_switch: ContractAddress, initial_owner: ContractAddress) {
+    fn constructor(ref self: ContractState, counter: u32, kill_switch: ContractAddress, initial_owner: ContractAddress) {
         self.ownable.initializer(initial_owner);
-        self.counter.write(inital_value);
+        self.counter.write(counter);
         self.kill_switch.write(kill_switch);
     }
 
