@@ -9,7 +9,6 @@ async function main() {
     nodeUrl: process.env.RPC_ENDPOINT,
   });
 
-  // initialize existing predeployed account 0
   console.log("ACCOUNT_ADDRESS=", process.env.DEPLOYER_ADDRESS);
   console.log("ACCOUNT_PRIVATE_KEY=", process.env.DEPLOYER_PRIVATE_KEY);
   const privateKey0 = process.env.DEPLOYER_PRIVATE_KEY ?? "";
@@ -17,15 +16,14 @@ async function main() {
   const account0 = new Account(provider, accountAddress0, privateKey0);
   console.log("Account connected.\n");
 
-  // Declare & deploy contract
   let sierraCode, casmCode;
 
   try {
     ({ sierraCode, casmCode } = await getCompiledCode(
-      "workshop_counter_contract"
+      "workshop_Counter"
     ));
   } catch (error: any) {
-    console.log(error);
+    console.log("EROR ERROR ERROR ERROR:",error);
     
     console.log("Failed to read contract files");
     process.exit(1);
@@ -35,8 +33,8 @@ async function main() {
   console.log(myCallData);
   
   const constructor = myCallData.compile("constructor", {
-    initial_value: 100,
-    address:
+    counter: 100,
+     kill_switch:
       "0x05f7151ea24624e12dde7e1307f9048073196644aa54d74a9c579a257214b542",
     initial_owner: process.env.DEPLOYER_ADDRESS ?? "",
   });
