@@ -1,53 +1,64 @@
 #[starknet::interface]
-trait ICounter<T>{
-    fn get_counter(self: @T) -> u32;
-    fn increase_counter(ref self: T);
+trait ICounter<TContractState> {
+    fn get_counter(self: @TContractState) -> u32;
+    fn increase_counter(ref self: TContractState, _value: u32);
 }
 
 #[starknet::contract]
-pub mod counter_contract {
-    use starknet::storage::StoragePointerWriteAccess;
-    use core::starknet::event::EventEmitter;
-    use super::{ICounter, ICounterDispatcher,ICounterDispatcherTrait};
+pub mod Counter {
+    use openzeppelin::access::ownable::ownable::OwnableComponent::InternalTrait;
+use core::starknet::event::EventEmitter;
+    use starknet::{get_caller_address, ContractAddress};
     use kill_switch::{IKillSwitchDispatcher, IKillSwitchDispatcherTrait};
-    
+    use openzeppelin::access::ownable::OwnableComponent;
+
+    component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+
+    #[abi(embed_v0)]
+    impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
+
     #[storage]
     struct Storage {
-        counter : u32,
+        counter: u32,
         kill_switch: ContractAddress,
+        #[substorage(v0)]
+        ownable: OwnableComponent::Storage
     }
-    
-    #[derive(Copy, Drop, Debug, PartialEq, starknet::Event)]
+
+    #[derive(Drop, PartialEq, starknet::Event)]
     struct CounterIncreased {
        #[key]
        pub value: u32
-       
     }
+
     #[event]
-    #[derive(Copy, Drop, Debug, PartialEq, starknet::Event)]
+    #[derive(Drop, PartialEq, starknet::Event)]
     pub enum Event {
-        CounterIncreased: CounterIncreased
+        CounterIncreased: CounterIncreased,
+        #[flat]
+        OwnableEvent: OwnableComponent::Event
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, initial_value: u32, _kill_switch: ContractAddress) {
-        self.counter.write(initial_value);
-        self.kill_switch.write(_kill_switch);
+    fn constructor(ref self: ContractState, inital_value: u32, kill_switch: ContractAddress, initial_owner: ContractAddress) {
+        self.ownable.initializer(initial_owner);
+        self.counter.write(inital_value);
+        self.kill_switch.write(kill_switch);
     }
 
     #[abi(embed_v0)]
     impl counter_contract of super::ICounter<ContractState>{
-        fn get_counter(self: @ContractState) -> u32{
+        fn get_counter(self: @ContractState) -> u32 {
             return self.counter.read();
         }
-        fn increase_counter(ref self: ContractState) {
-            let current_value = self.counter.read();
-            self.counter.write(current_value + 1);
 
-            self.emit(Event::CounterIncreased(CounterIncreased{value: self.counter.read()}));
+        fn increase_counter(ref self: ContractState, _value: u32) {
+            self.ownable.assert_only_owner();
+            let status: bool = IKillSwitchDispatcher {contract_address: self.kill_switch.read()}.is_active();
+            assert!(status == true, "Kill Switch is active");
+            self.counter.write(_value);
+            self.emit(Event::CounterIncreased(CounterIncreased{value: _value}));
         }
     }
-
-    
-    
 }
